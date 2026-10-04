@@ -1,0 +1,30 @@
+	using (true)
+	with check (true);
+# Controle Financeiro da Clínica
+
+npm run electron-build
+
+Aplicativo local para controlar entradas e saídas mensais da clínica, incluindo parcelamentos automáticos, relatórios e backup em JSON.
+
+## Como usar
+
+1. Execute `npm install` uma vez.
+2. Abra o aplicativo com `npm start`.
+3. Escolha o mês no topo da tela.
+4. Cadastre uma entrada ou saída.
+5. Para uma movimentação parcelada, marque "Parcelado" e informe o número de parcelas. O valor total será contabilizado no mês da venda, sem adicionar valores aos meses seguintes. Para reunir parcelas de um parcelamento antigo, edite uma delas, marque "Adiantamento" e salve; o sistema reúne os valores e remove as demais parcelas do grupo.
+6. Para um item mensal de valor fixo, marque "Recorrente" e informe por quantos meses ele deve ser lançado (12 meses por padrão).
+
+Os lançamentos e as categorias personalizadas são salvos automaticamente no armazenamento local da instalação do aplicativo. Eles continuam disponíveis quando o aplicativo é fechado e aberto novamente.
+
+## Backup
+
+Use "Exportar dados" para gerar um arquivo JSON e guarde-o em um local seguro. Para restaurar dados, use "Importar dados" e selecione um backup gerado pelo sistema.
+
+## Pagamentos e relatórios
+
+Nos lançamentos, informe a forma de pagamento. Para entradas no cartão de crédito ou débito, informe a taxa percentual cobrada pela operadora; os relatórios e o saldo consideram o valor líquido e também mostram o total das taxas. O relatório detalhado pode ser filtrado por categoria, status e tipo de movimento (entradas, saídas ou ambos).
+
+É possível anexar imagens ou arquivos PDF de até 12 MB como comprovante. As imagens são compactadas e os arquivos são armazenados localmente no banco do aplicativo; os backups exportados incluem os comprovantes e os restauram durante a importação.
+
+O relatório detalhado oferece opções diária e semanal. Selecione uma data de referência; o período semanal considera de segunda-feira a domingo.

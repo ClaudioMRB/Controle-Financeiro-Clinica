@@ -1,0 +1,41 @@
+{
+  "name": "controle-financeiro-clinica",
+  "version": "1.0.0",
+  "description": "Aplicativo de controle financeiro para clínica médica",
+  "author": "Seu Nome",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "electron-build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.controlefinanceiro.clinica",
+    "productName": "Controle Financeiro Clinica",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Controle Financeiro Clínica"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0"
+  }
+}

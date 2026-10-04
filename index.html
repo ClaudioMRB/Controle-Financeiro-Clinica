@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controle Financeiro da Clínica</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img class="clinic-logo" src="clinic-logo.svg" alt="Logo da clínica" />
+          <div>
+            <p class="eyebrow">Espaço Pele Taty Fukuda</p>
+            <h1>Controle Financeiro</h1>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="exportDataBtn" class="secondary-btn small-btn" type="button">Exportar dados</button>
+          <button id="importDataBtn" class="secondary-btn small-btn" type="button">Importar dados</button>
+          <button id="clearDataBtn" class="danger-btn small-btn" type="button">Apagar todos os dados</button>
+          <input id="importDataInput" type="file" accept=".json,application/json" hidden />
+        </div>
+        <div class="month-selector" id="monthSelector" aria-label="Seleção de mês"></div>
+      </header>
+
+      <section class="summary-grid">
+        <article class="summary-card income">
+          <span>Entradas líquidas</span>
+          <strong id="totalIncome">R$ 0,00</strong>
+        </article>
+        <article class="summary-card gross-income">
+          <span>Entradas brutas</span>
+          <strong id="totalGrossIncome">R$ 0,00</strong>
+        </article>
+        <article class="summary-card expense">
+          <span>Saídas</span>
+          <strong id="totalExpense">R$ 0,00</strong>
+        </article>
+        <article class="summary-card balance">
+          <span>Saldo</span>
+          <strong id="totalBalance">R$ 0,00</strong>
+        </article>
+        <article class="summary-card pending">
+          <span>Parcelas e recorrências</span>
+          <strong id="totalInstallments">0</strong>
+        </article>
+      </section>
+
+      <main class="content-grid">
+        <section class="panel form-panel">
+          <div class="panel-header">
+            <h2 id="formTitle">Adicionar movimento</h2>
+          </div>
+
+          <form id="entryForm" novalidate>
+            <div class="form-grid">
+              <label>
+                <span>Descrição</span>
+                <input id="description" type="text" placeholder="Ex: Consulta, material, salário..." required />
+              </label>
+
+              <label>
+                <span>Tipo</span>
+                <select id="type">
+                  <option value="income">Entrada</option>
+                  <option value="expense" selected>Saída</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Categoria</span>
+                <select id="category"></select>
+                <div class="category-actions">
+                  <input id="newCategory" type="text" placeholder="Nova categoria" maxlength="40" />
+                  <button id="addCategoryBtn" type="button" class="secondary-btn">Adicionar</button>
+                  <button id="removeCategoryBtn" type="button" class="category-remove-btn">Remover</button>
+                </div>
+              </label>
+
+              <label>
+                <span>Valor</span>
+                <input id="amount" type="number" min="0.01" step="0.01" placeholder="0,00" required />
+              </label>
+
+              <label id="paidAmountField">
+                <span>Valor recebido</span>
+                <input id="paidAmount" type="number" min="0" step="0.01" placeholder="0,00" />
+                <small class="receipt-status">Informe quanto o cliente pagou até o momento.</small>
+              </label>
+
+              <label>
+                <span>Status do pagamento</span>
+                <select id="paymentStatus">
+                  <option value="open">Em aberto</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Forma de pagamento</span>
+                <select id="paymentMethod">
+                  <option value="cash">Dinheiro</option>
+                  <option value="pix">Pix</option>
+                  <option value="debit">Cartão de débito</option>
+                  <option value="credit">Cartão de crédito</option>
+                  <option value="transfer">Transferência</option>
+                  <option value="other" selected>Outro</option>
+                </select>
+              </label>
+
+              <label id="cardFeeField" class="hidden">
+                <span>Taxa do cartão (%)</span>
+                <input id="cardFeeRate" type="number" min="0" max="100" step="0.01" value="0" />
+              </label>
+
+              <label>
+                <span>Comprovante (imagem ou PDF)</span>
+                <input id="receiptFile" type="file" accept="image/*,application/pdf,.pdf" />
+                <small id="receiptStatus" class="receipt-status">Nenhum comprovante anexado.</small>
+                <button id="removeReceiptBtn" class="category-remove-btn hidden" type="button">Remover comprovante atual</button>
+              </label>
+
+              <label>
+                <span>Data</span>
+                <input id="date" type="date" required />
+              </label>
+
+              <label class="checkbox-field">
+                <span>Parcelado</span>
+                <input id="isInstallment" type="checkbox" />
+              </label>
+
+              <label class="checkbox-field">
+                <span>Recorrente</span>
+                <input id="isRecurring" type="checkbox" />
+              </label>
+
+              <label class="installment-field hidden">
+                <span>Parcelas</span>
+                <input id="installmentsCount" type="number" min="2" max="24" value="2" />
+              </label>
+
+              <label class="hidden">
+                <span>Primeiro mês</span>
+                <select id="startMonth"></select>
+              </label>
+
+              <label id="advanceInstallmentField" class="installment-field hidden checkbox-field">
+                <span>Adiantamento</span>
+                <input id="advanceInstallment" type="checkbox" />
+              </label>
+
+              <label class="recurring-field hidden">
+                <span>Meses</span>
+                <input id="recurringMonths" type="number" min="2" max="120" value="12" />
+              </label>
+            </div>
+
+            <div class="helper-box hidden" id="installmentHelper">
+              O valor será dividido automaticamente entre os meses selecionados.
+            </div>
+
+            <div class="helper-box hidden" id="recurringHelper">
+              O mesmo valor será lançado uma vez por mês durante o período informado.
+            </div>
+
+            <div class="form-actions">
+              <button id="submitEntryBtn" type="submit" class="primary-btn">Salvar movimento</button>
+              <button id="cancelEditBtn" type="button" class="secondary-btn hidden">Cancelar edição</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel table-panel">
+          <div class="panel-header">
+            <h2 id="monthTitle">Movimentos</h2>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Tipo</th>
+                  <th>Pagamento</th>
+                  <th>Valor</th>
+                  <th>Recebido</th>
+                  <th>Data</th>
+                  <th>Pago?</th>
+                  <th>Ação</th>
+                </tr>
+              </thead>
+              <tbody id="entriesTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel report-panel">
+          <div class="panel-header report-header">
+            <div class="report-title-wrap">
+              <h2>Relatório detalhado</h2>
+              <select id="reportType" class="report-type-select">
+                <option value="month">Relatório do mês</option>
+                <option value="day">Relatório diário</option>
+                <option value="week">Relatório semanal</option>
+                <option value="year">Relatório anual</option>
+              </select>
+              <label id="reportDateField" class="report-date-field hidden">
+                <span>Data de referência</span>
+                <input id="reportDate" type="date" />
+              </label>
+              <select id="reportStatusFilter" class="report-type-select">
+                <option value="all">Todos</option>
+                <option value="paid">Pagos</option>
+                <option value="open">Em aberto</option>
+              </select>
+              <select id="reportEntryTypeFilter" class="report-type-select" aria-label="Filtrar relatório por tipo de movimento">
+                <option value="all">Entradas e saídas</option>
+                <option value="income">Somente entradas</option>
+                <option value="expense">Somente saídas</option>
+              </select>
+              <select id="reportCategoryFilter" class="report-type-select" aria-label="Filtrar relatório por categoria">
+                <option value="all">Todas as categorias</option>
+              </select>
+            </div>
+            <button type="button" id="printReportBtn" class="secondary-btn">Imprimir relatório</button>
+          </div>
+          <div id="reportContent" class="report-content"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="receiptDialog" class="receipt-dialog">
+      <form method="dialog" class="receipt-dialog-header">
+        <strong>Comprovante de pagamento</strong>
+        <button type="submit" class="secondary-btn">Fechar</button>
+      </form>
+      <img id="receiptPreview" alt="Comprovante de pagamento" />
+      <iframe id="receiptPdfPreview" class="hidden" title="Pré-visualização do comprovante em PDF"></iframe>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
