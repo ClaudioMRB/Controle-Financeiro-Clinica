@@ -1,6 +1,6 @@
 {
   "name": "controle-financeiro-clinica",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aplicativo de controle financeiro para clínica médica",
   "author": "Seu Nome",
   "main": "main.js",

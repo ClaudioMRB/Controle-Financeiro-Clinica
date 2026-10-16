@@ -25,6 +25,8 @@ Use "Exportar dados" para gerar um arquivo JSON e guarde-o em um local seguro. P
 
 Nos lançamentos, informe a forma de pagamento. Para entradas no cartão de crédito ou débito, informe a taxa percentual cobrada pela operadora; os relatórios e o saldo consideram o valor líquido e também mostram o total das taxas. O relatório detalhado pode ser filtrado por categoria, status e tipo de movimento (entradas, saídas ou ambos).
 
+Para lançar uma saída por boleto, selecione "Boleto", informe o valor original e o vencimento. Se a data do lançamento for posterior ao vencimento, informe também o "Valor atualizado após vencimento". O sistema calcula automaticamente os juros/multas pela diferença entre os valores e os discrimina nos relatórios do mês do pagamento, além do resumo anual.
+
 É possível anexar imagens ou arquivos PDF de até 12 MB como comprovante. As imagens são compactadas e os arquivos são armazenados localmente no banco do aplicativo; os backups exportados incluem os comprovantes e os restauram durante a importação.
 
 O relatório detalhado oferece opções diária e semanal. Selecione uma data de referência; o período semanal considera de segunda-feira a domingo.

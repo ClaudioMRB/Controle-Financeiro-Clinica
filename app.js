@@ -15,6 +15,7 @@ const paymentMethods = {
   debit: 'Cartão de débito',
   credit: 'Cartão de crédito',
   transfer: 'Transferência',
+  boleto: 'Boleto',
   other: 'Outro'
 };
 
@@ -60,6 +61,12 @@ const refs = {
   addCategoryBtn: document.getElementById('addCategoryBtn'),
   removeCategoryBtn: document.getElementById('removeCategoryBtn'),
   amount: document.getElementById('amount'),
+  amountLabel: document.getElementById('amountLabel'),
+  boletoUpdatedAmount: document.getElementById('boletoUpdatedAmount'),
+  boletoUpdatedAmountField: document.getElementById('boletoUpdatedAmountField'),
+  boletoInterestPreview: document.getElementById('boletoInterestPreview'),
+  boletoDueDate: document.getElementById('boletoDueDate'),
+  boletoDueDateField: document.getElementById('boletoDueDateField'),
   paidAmount: document.getElementById('paidAmount'),
   paidAmountField: document.getElementById('paidAmountField'),
   paymentMethod: document.getElementById('paymentMethod'),
@@ -126,7 +133,13 @@ function bindEvents() {
   refs.reportCategoryFilter.addEventListener('change', renderReport);
   refs.type.addEventListener('change', togglePaymentFields);
   refs.paymentMethod.addEventListener('change', togglePaymentFields);
-  refs.amount.addEventListener('input', syncPaidAmountDefault);
+  refs.date.addEventListener('change', togglePaymentFields);
+  refs.boletoDueDate.addEventListener('change', togglePaymentFields);
+  refs.boletoUpdatedAmount.addEventListener('input', updateBoletoInterestPreview);
+  refs.amount.addEventListener('input', () => {
+    syncPaidAmountDefault();
+    updateBoletoInterestPreview();
+  });
   refs.receiptFile.addEventListener('change', updateReceiptSelection);
   refs.removeReceiptBtn.addEventListener('click', removeSelectedReceipt);
   refs.receiptDialog.addEventListener('close', closeReceiptPreview);
@@ -162,6 +175,8 @@ function persistLocalData() {
   localStorage.setItem(categoriesStorageKey, JSON.stringify(state.customCategories));
   refs.paymentMethod.value = 'other';
   refs.cardFeeRate.value = '0';
+  refs.boletoUpdatedAmount.value = '';
+  refs.boletoDueDate.value = '';
   refs.receiptFile.value = '';
   refs.receiptStatus.textContent = 'Nenhum comprovante anexado.';
   refs.removeReceiptBtn.classList.add('hidden');
@@ -402,11 +417,39 @@ function toggleRecurringFields() {
 
 function togglePaymentFields() {
   const showCardFee = refs.type.value === 'income' && ['credit', 'debit'].includes(refs.paymentMethod.value);
+  const isBoleto = refs.paymentMethod.value === 'boleto';
   refs.cardFeeField.classList.toggle('hidden', !showCardFee);
+  refs.boletoDueDateField.classList.toggle('hidden', !isBoleto);
+  refs.boletoUpdatedAmountField.classList.toggle('hidden', !isBoletoOverdue());
+  refs.amountLabel.textContent = isBoleto ? 'Valor do boleto' : 'Valor';
   refs.paidAmountField.classList.toggle('hidden', refs.type.value !== 'income');
+  updateBoletoInterestPreview();
   if (refs.type.value === 'income') {
     syncPaidAmountDefault();
   }
+}
+
+function isBoletoOverdue() {
+  return refs.paymentMethod.value === 'boleto'
+    && Boolean(refs.date.value)
+    && Boolean(refs.boletoDueDate.value)
+    && refs.date.value > refs.boletoDueDate.value;
+}
+
+function updateBoletoInterestPreview() {
+  if (!isBoletoOverdue()) {
+    refs.boletoInterestPreview.textContent = 'O juros será calculado automaticamente.';
+    return;
+  }
+
+  const originalAmount = Number(refs.amount.value);
+  const updatedAmount = Number(refs.boletoUpdatedAmount.value);
+  if (!Number.isFinite(originalAmount) || originalAmount <= 0 || !Number.isFinite(updatedAmount) || updatedAmount < originalAmount) {
+    refs.boletoInterestPreview.textContent = 'Informe um valor atualizado igual ou maior que o valor do boleto.';
+    return;
+  }
+
+  refs.boletoInterestPreview.textContent = `Juros/multa calculados: ${formatCurrency(updatedAmount - originalAmount)}.`;
 }
 
 function syncPaidAmountDefault() {
@@ -480,6 +523,7 @@ async function handleSubmitForm(event) {
   const value = Number(refs.amount.value);
   const paidValue = type === 'income' ? Number(refs.paidAmount.value) : value;
   const paymentMethod = refs.paymentMethod.value;
+  const boletoDueDate = paymentMethod === 'boleto' ? refs.boletoDueDate.value || null : null;
   const cardFeeRate = type === 'income' && ['credit', 'debit'].includes(paymentMethod)
     ? Math.max(0, Number(refs.cardFeeRate.value) || 0)
     : 0;
@@ -490,8 +534,10 @@ async function handleSubmitForm(event) {
   const status = refs.paymentStatus.value;
   const installmentsTotal = isInstallment ? Math.max(2, Number(refs.installmentsCount.value || 2)) : 1;
   const recurringMonths = isRecurring ? Math.max(2, Number(refs.recurringMonths.value || 12)) : 1;
+  const isOverdueBoleto = isBoletoOverdue();
+  const boletoUpdatedAmount = isOverdueBoleto ? Number(refs.boletoUpdatedAmount.value) : null;
 
-  if (!description || !dateString || !Number.isFinite(value) || value <= 0 || !Number.isFinite(paidValue) || paidValue < 0 || paidValue > value) {
+  if (!description || !dateString || !Number.isFinite(value) || value <= 0 || !Number.isFinite(paidValue) || paidValue < 0 || paidValue > value || (paymentMethod === 'boleto' && !boletoDueDate) || (isOverdueBoleto && (!Number.isFinite(boletoUpdatedAmount) || boletoUpdatedAmount < value))) {
     alert('Preencha todos os campos corretamente antes de salvar.');
     return;
   }
@@ -532,6 +578,8 @@ async function handleSubmitForm(event) {
         paidAmount: paidValue,
         paymentMethod,
         cardFeeRate,
+        boletoUpdatedAmount,
+        boletoDueDate,
         receiptId,
         date: toDateInputValue(baseDate),
         year: baseDate.getFullYear(),
@@ -568,6 +616,8 @@ async function handleSubmitForm(event) {
       paidAmount: paidValue,
       paymentMethod,
       cardFeeRate,
+      boletoUpdatedAmount,
+      boletoDueDate,
       receiptId,
       date: baseDate,
       startingMonthIndex,
@@ -585,6 +635,8 @@ async function handleSubmitForm(event) {
       paidAmount: paidValue,
       paymentMethod,
       cardFeeRate,
+      boletoUpdatedAmount,
+      boletoDueDate,
       receiptId,
       date: toDateInputValue(baseDate),
       year: baseDate.getFullYear(),
@@ -608,6 +660,8 @@ async function handleSubmitForm(event) {
       paidAmount: paidValue,
       paymentMethod,
       cardFeeRate,
+      boletoUpdatedAmount,
+      boletoDueDate,
       receiptId,
       date: baseDate,
       installmentsTotal,
@@ -625,6 +679,8 @@ async function handleSubmitForm(event) {
       amount: value,
       paymentMethod,
       cardFeeRate,
+      boletoUpdatedAmount,
+      boletoDueDate,
       receiptId,
       date: toDateInputValue(baseDate),
       year: baseDate.getFullYear(),
@@ -659,7 +715,7 @@ async function handleSubmitForm(event) {
   render();
 }
 
-function createInstallmentEntries({ description, type, category, amount, paidAmount, paymentMethod, cardFeeRate, receiptId, date, installmentsTotal, status }) {
+function createInstallmentEntries({ description, type, category, amount, paidAmount, paymentMethod, cardFeeRate, boletoUpdatedAmount, boletoDueDate, receiptId, date, installmentsTotal, status }) {
   const parentId = generateId();
 
   return [{
@@ -671,6 +727,8 @@ function createInstallmentEntries({ description, type, category, amount, paidAmo
     paidAmount,
     paymentMethod,
     cardFeeRate,
+    boletoUpdatedAmount,
+    boletoDueDate,
     receiptId,
     date: toDateInputValue(date),
     year: date.getFullYear(),
@@ -684,7 +742,7 @@ function createInstallmentEntries({ description, type, category, amount, paidAmo
   }];
 }
 
-function createRecurringEntries({ description, type, category, amount, paidAmount, paymentMethod, cardFeeRate, receiptId, date, startingMonthIndex, recurringMonths, status }) {
+function createRecurringEntries({ description, type, category, amount, paidAmount, paymentMethod, cardFeeRate, boletoUpdatedAmount, boletoDueDate, receiptId, date, startingMonthIndex, recurringMonths, status }) {
   const startingYear = date.getFullYear();
   const entries = [];
   const parentId = generateId();
@@ -704,6 +762,8 @@ function createRecurringEntries({ description, type, category, amount, paidAmoun
       paidAmount,
       paymentMethod,
       cardFeeRate,
+      boletoUpdatedAmount,
+      boletoDueDate,
       receiptId,
       date: toDateInputValue(targetMonthDate),
       year,
@@ -760,6 +820,8 @@ function startEditingEntry(entryId) {
   refs.type.value = entry.type;
   applyCategoryOptions(entry.category);
   refs.amount.value = entry.amount;
+  refs.boletoUpdatedAmount.value = entry.boletoUpdatedAmount || '';
+  refs.boletoDueDate.value = entry.boletoDueDate || '';
   refs.paidAmount.value = entry.type === 'income' ? entry.paidAmount : '';
   refs.paymentMethod.value = entry.paymentMethod || 'other';
   refs.cardFeeRate.value = String(entry.cardFeeRate || 0);
@@ -972,7 +1034,7 @@ function renderSummary() {
 
   const expense = currentEntries
     .filter((entry) => entry.type === 'expense')
-    .reduce((sum, entry) => sum + Number(entry.amount), 0);
+    .reduce((sum, entry) => sum + getEntryAmount(entry), 0);
 
   const balance = income - expense;
   const activeInstallments = state.entries
@@ -996,7 +1058,7 @@ function renderEntriesTable() {
     .sort((first, second) => new Date(second.date) - new Date(first.date));
 
   if (!entries.length) {
-    refs.entriesTableBody.innerHTML = '<tr><td colspan="9" class="empty-state">Nenhum movimento cadastrado para este mês.</td></tr>';
+    refs.entriesTableBody.innerHTML = '<tr><td colspan="10" class="empty-state">Nenhum movimento cadastrado para este mês.</td></tr>';
     return;
   }
 
@@ -1023,7 +1085,8 @@ function renderEntriesTable() {
         <td>${entry.category}</td>
         <td><span class="type-pill ${rowTypeClass}">${entry.type === 'income' ? 'Entrada' : 'Saída'}</span></td>
         <td>${paymentMethods[entry.paymentMethod] || paymentMethods.other}</td>
-        <td class="${rowAmountClass}">${formatCurrency(entry.amount)}${getEntryFee(entry) ? `<small class="fee-details">Líquido ${formatCurrency(getEntryNetAmount(entry))} • taxa ${formatCurrency(getEntryFee(entry))}</small>` : ''}</td>
+        <td class="${rowAmountClass}">${formatCurrency(entry.amount)}${entry.boletoUpdatedAmount ? `<small class="fee-details">Atualizado ${formatCurrency(getEntryAmount(entry))}</small>` : ''}${getEntryFee(entry) ? `<small class="fee-details">Líquido ${formatCurrency(getEntryNetAmount(entry))} • taxa ${formatCurrency(getEntryFee(entry))}</small>` : ''}</td>
+        <td>${getBoletoInterest(entry) ? `<span class="fee-details">${formatCurrency(getBoletoInterest(entry))}</span>` : '—'}</td>
         <td class="${entry.type === 'income' ? 'amount-income' : ''}">${entry.type === 'income' ? formatCurrency(entry.paidAmount) : '—'}${entry.type === 'income' && entry.paidAmount < entry.amount ? `<small class="fee-details">Pendente ${formatCurrency(entry.amount - entry.paidAmount)}</small>` : ''}</td>
         <td>${formatDate(entry.date)}</td>
         <td>
@@ -1105,7 +1168,8 @@ function renderPeriodReport(entries, title, statusFilter, categoryFilter, entryT
   const totalReceivedIncome = incomeEntries.reduce((sum, entry) => sum + getEntryReceivedAmount(entry), 0);
   const totalFees = incomeEntries.reduce((sum, entry) => sum + getEntryFee(entry), 0);
   const totalIncome = totalGrossIncome - totalFees;
-  const totalExpense = expenseEntries.reduce((sum, entry) => sum + Number(entry.amount), 0);
+  const totalExpense = expenseEntries.reduce((sum, entry) => sum + getEntryAmount(entry), 0);
+  const totalBoletoInterest = expenseEntries.reduce((sum, entry) => sum + getBoletoInterest(entry), 0);
 
   refs.reportContent.innerHTML = `
     <div class="report-summary-box">
@@ -1117,6 +1181,7 @@ function renderPeriodReport(entries, title, statusFilter, categoryFilter, entryT
         <div><strong>Entradas recebidas:</strong> ${formatCurrency(totalReceivedIncome)}</div>
         <div><strong>Valores pendentes:</strong> ${formatCurrency(totalGrossIncome - totalReceivedIncome)}</div>
         <div><strong>Saídas:</strong> ${formatCurrency(totalExpense)}</div>
+        <div><strong>Juros/multas de boletos:</strong> ${formatCurrency(totalBoletoInterest)}</div>
       </div>
     </div>
 
@@ -1145,9 +1210,9 @@ function renderPeriodReport(entries, title, statusFilter, categoryFilter, entryT
                 <li class="report-item">
                   <div class="report-item-main">
                     <span class="report-item-name">${entry.description}</span>
-                    <small>${entry.category} • ${formatDate(entry.date)}${getInstallmentReportLabel(entry)} • ${paymentStatusLabel(entry.status)}</small>
+                    <small>${entry.category} • ${formatDate(entry.date)}${entry.boletoDueDate ? ` • vencimento ${formatDate(entry.boletoDueDate)}` : ''}${entry.boletoUpdatedAmount ? ` • atualizado ${formatCurrency(getEntryAmount(entry))}` : ''}${getInstallmentReportLabel(entry)} • ${paymentStatusLabel(entry.status)}${getBoletoInterest(entry) ? ` • juros/multa ${formatCurrency(getBoletoInterest(entry))}` : ''}</small>
                   </div>
-                  <strong class="amount-expense">${formatCurrency(entry.amount)}</strong>
+                  <strong class="amount-expense">${formatCurrency(getEntryAmount(entry))}</strong>
                 </li>
               `).join('')
             : '<li class="report-empty"><span>Sem saídas neste período.</span></li>'}
@@ -1162,7 +1227,7 @@ function renderAnnualReport(statusFilter, categoryFilter, entryTypeFilter) {
   const monthlySummary = monthNames.map((month, index) => {
     const monthEntries = filteredEntries.filter((entry) => entry.monthIndex === index);
     const monthIncome = monthEntries.filter((entry) => entry.type === 'income').reduce((sum, entry) => sum + getEntryNetAmount(entry), 0);
-    const monthExpense = monthEntries.filter((entry) => entry.type === 'expense').reduce((sum, entry) => sum + Number(entry.amount), 0);
+    const monthExpense = monthEntries.filter((entry) => entry.type === 'expense').reduce((sum, entry) => sum + getEntryAmount(entry), 0);
 
     return {
       month,
@@ -1176,6 +1241,7 @@ function renderAnnualReport(statusFilter, categoryFilter, entryTypeFilter) {
   const totalReceivedIncome = filteredEntries.filter((entry) => entry.type === 'income').reduce((sum, entry) => sum + getEntryReceivedAmount(entry), 0);
   const totalFees = filteredEntries.filter((entry) => entry.type === 'income').reduce((sum, entry) => sum + getEntryFee(entry), 0);
   const totalExpense = monthlySummary.reduce((sum, item) => sum + item.expense, 0);
+  const totalBoletoInterest = filteredEntries.filter((entry) => entry.type === 'expense').reduce((sum, entry) => sum + getBoletoInterest(entry), 0);
   const totalBalance = totalIncome - totalExpense;
   const generatedAt = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
@@ -1204,6 +1270,7 @@ function renderAnnualReport(statusFilter, categoryFilter, entryTypeFilter) {
           <div><strong>Entradas recebidas:</strong> ${formatCurrency(totalReceivedIncome)}</div>
           <div><strong>Taxas de cartão:</strong> ${formatCurrency(totalFees)}</div>
           <div><strong>Saídas:</strong> ${formatCurrency(totalExpense)}</div>
+          <div><strong>Juros/multas de boletos:</strong> ${formatCurrency(totalBoletoInterest)}</div>
           <div><strong>Saldo:</strong> ${formatCurrency(totalBalance)}</div>
           <div><strong>Período:</strong> ${state.currentYear}</div>
         </div>
@@ -1343,17 +1410,28 @@ function normalizeEntries(entries) {
   return (entries || []).map((entry) => {
     const dateValue = entry.date ? new Date(`${entry.date}T12:00:00`) : new Date();
     const resolvedYear = Number(entry.year) || dateValue.getFullYear();
+    const amount = Math.max(0, Number(entry.amount) || 0);
+    const legacyBoletoInterest = Math.min(amount, Math.max(0, Number(entry.boletoInterest) || 0));
+    const suppliedUpdatedAmount = Number(entry.boletoUpdatedAmount);
+    const hasUpdatedAmount = Number.isFinite(suppliedUpdatedAmount) && suppliedUpdatedAmount >= amount;
+    const isLegacyOverdueBoleto = entry.paymentMethod === 'boleto' && !hasUpdatedAmount && legacyBoletoInterest > 0;
+    const originalBoletoAmount = isLegacyOverdueBoleto ? amount - legacyBoletoInterest : amount;
 
     return {
       ...entry,
+      amount: originalBoletoAmount,
       year: resolvedYear,
       monthIndex: Number.isInteger(Number(entry.monthIndex)) ? Number(entry.monthIndex) : dateValue.getMonth(),
       status: entry.status === 'paid' ? 'paid' : 'open',
       paymentMethod: entry.paymentMethod || 'other',
+      boletoUpdatedAmount: entry.paymentMethod === 'boleto' && (hasUpdatedAmount || isLegacyOverdueBoleto)
+        ? (hasUpdatedAmount ? suppliedUpdatedAmount : amount)
+        : null,
+      boletoDueDate: entry.boletoDueDate || null,
       cardFeeRate: Math.min(100, Math.max(0, Number(entry.cardFeeRate) || 0)),
       paidAmount: entry.type === 'income'
-        ? Math.min(Number(entry.amount) || 0, Math.max(0, Number(entry.paidAmount ?? entry.amount) || 0))
-        : Number(entry.amount) || 0
+        ? Math.min(originalBoletoAmount, Math.max(0, Number(entry.paidAmount ?? originalBoletoAmount) || 0))
+        : originalBoletoAmount
     };
   });
 }
@@ -1372,6 +1450,21 @@ function getEntryNetAmount(entry) {
 
 function getEntryReceivedAmount(entry) {
   return entry.type === 'income' ? Number(entry.paidAmount || 0) : 0;
+}
+
+function getEntryAmount(entry) {
+  return entry.paymentMethod === 'boleto'
+    && entry.boletoUpdatedAmount !== null
+    && entry.boletoUpdatedAmount !== ''
+    && Number.isFinite(Number(entry.boletoUpdatedAmount))
+    ? Number(entry.boletoUpdatedAmount)
+    : Number(entry.amount) || 0;
+}
+
+function getBoletoInterest(entry) {
+  return entry.paymentMethod === 'boleto' && entry.type === 'expense'
+    ? Math.max(0, getEntryAmount(entry) - (Number(entry.amount) || 0))
+    : 0;
 }
 
 async function saveEntries(entries) {
