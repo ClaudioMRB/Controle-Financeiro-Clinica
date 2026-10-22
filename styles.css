@@ -302,6 +302,52 @@ input, select {
   padding: 11px 12px;
 }
 
+.category-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.category-field > span {
+  font-weight: 600;
+}
+
+.category-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgba(21, 76, 155, 0.2);
+  border-radius: 10px;
+  background: #fbfcff;
+}
+
+.category-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px;
+}
+
+.category-option input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.category-option span {
+  overflow-wrap: normal;
+}
+
 #paidAmountField.hidden {
   display: none;
 }
@@ -341,6 +387,16 @@ input, select {
 .fee-details {
   display: block;
   margin-top: 4px;
+}
+
+.form-validation-message {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(216, 77, 77, 0.25);
+  border-radius: 10px;
+  background: rgba(216, 77, 77, 0.08);
+  color: var(--expense);
+  font-size: 0.88rem;
 }
 
 .receipt-btn {

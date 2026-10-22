@@ -69,15 +69,16 @@
                 </select>
               </label>
 
-              <label>
-                <span>Categoria</span>
-                <select id="category"></select>
+              <div class="category-field">
+                <span>Categorias</span>
+                <div id="category" class="category-options" role="group" aria-label="Categorias do movimento"></div>
+                <small class="receipt-status">Selecione uma ou mais categorias.</small>
                 <div class="category-actions">
                   <input id="newCategory" type="text" placeholder="Nova categoria" maxlength="40" />
                   <button id="addCategoryBtn" type="button" class="secondary-btn">Adicionar</button>
                   <button id="removeCategoryBtn" type="button" class="category-remove-btn">Remover</button>
                 </div>
-              </label>
+              </div>
 
               <label>
                 <span id="amountLabel">Valor</span>
@@ -177,6 +178,8 @@
             <div class="helper-box hidden" id="recurringHelper">
               O mesmo valor será lançado uma vez por mês durante o período informado.
             </div>
+
+            <p id="formValidationMessage" class="form-validation-message hidden" role="alert"></p>
 
             <div class="form-actions">
               <button id="submitEntryBtn" type="submit" class="primary-btn">Salvar movimento</button>

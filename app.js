@@ -51,6 +51,7 @@ const refs = {
   reportCategoryFilter: document.getElementById('reportCategoryFilter'),
   printReportBtn: document.getElementById('printReportBtn'),
   form: document.getElementById('entryForm'),
+  formValidationMessage: document.getElementById('formValidationMessage'),
   formTitle: document.getElementById('formTitle'),
   submitEntryBtn: document.getElementById('submitEntryBtn'),
   cancelEditBtn: document.getElementById('cancelEditBtn'),
@@ -143,6 +144,8 @@ function bindEvents() {
   refs.receiptFile.addEventListener('change', updateReceiptSelection);
   refs.removeReceiptBtn.addEventListener('click', removeSelectedReceipt);
   refs.receiptDialog.addEventListener('close', closeReceiptPreview);
+  refs.form.addEventListener('input', clearFormValidationMessage);
+  refs.form.addEventListener('change', clearFormValidationMessage);
   refs.form.addEventListener('submit', handleSubmitForm);
   refs.entriesTableBody.addEventListener('click', handleTableAction);
   refs.entriesTableBody.addEventListener('change', handleStatusToggle);
@@ -323,14 +326,31 @@ function populateMonthSelect() {
   refs.startMonth.value = String(state.currentMonth);
 }
 
-function applyCategoryOptions(selectedCategory = refs.category.value) {
+function applyCategoryOptions(selectedCategories = getSelectedCategories()) {
   const selectedType = refs.type.value;
   const categories = getCategories(selectedType);
+  const selected = new Set(selectedCategories.filter((category) => categories.includes(category)));
 
-  refs.category.innerHTML = categories.map((category) => {
-    return `<option value="${category}">${category}</option>`;
-  }).join('');
-  refs.category.value = categories.includes(selectedCategory) ? selectedCategory : categories[0];
+  refs.category.replaceChildren(...categories.map((category) => {
+    const label = document.createElement('label');
+    label.className = 'category-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = category;
+    checkbox.checked = selected.has(category);
+    const name = document.createElement('span');
+    name.textContent = category;
+    label.append(checkbox, name);
+    return label;
+  }));
+
+  if (!selected.size && categories.length) {
+    refs.category.querySelector('input').checked = true;
+  }
+}
+
+function getSelectedCategories() {
+  return [...refs.category.querySelectorAll('input:checked')].map((checkbox) => checkbox.value);
 }
 
 function getCategories(type) {
@@ -341,6 +361,7 @@ function getCategories(type) {
 async function addCategory() {
   const category = refs.newCategory.value.trim();
   const selectedType = refs.type.value;
+  const selectedCategories = getSelectedCategories();
 
   if (!category) {
     return;
@@ -351,15 +372,20 @@ async function addCategory() {
     persistLocalData();
   }
 
-  applyCategoryOptions(category);
+  applyCategoryOptions([...selectedCategories, category]);
   populateReportCategoryFilter();
   refs.newCategory.value = '';
 }
 
 async function removeCategory() {
-  const category = refs.category.value;
+  const selectedCategories = getSelectedCategories();
   const selectedType = refs.type.value;
   const defaultCategories = selectedType === 'income' ? incomeCategories : expenseCategories;
+  if (selectedCategories.length !== 1) {
+    alert('Selecione uma única categoria para remover.');
+    return;
+  }
+  const [category] = selectedCategories;
 
   if (!category || defaultCategories.includes(category)) {
     alert('As categorias padrão não podem ser removidas.');
@@ -516,10 +542,11 @@ function setDefaultDate(date = new Date(state.currentYear, state.currentMonth, 1
 
 async function handleSubmitForm(event) {
   event.preventDefault();
+  clearFormValidationMessage();
 
   const description = refs.description.value.trim();
   const type = refs.type.value;
-  const category = refs.category.value;
+  const categories = getSelectedCategories();
   const value = Number(refs.amount.value);
   const paidValue = type === 'income' ? Number(refs.paidAmount.value) : value;
   const paymentMethod = refs.paymentMethod.value;
@@ -537,13 +564,13 @@ async function handleSubmitForm(event) {
   const isOverdueBoleto = isBoletoOverdue();
   const boletoUpdatedAmount = isOverdueBoleto ? Number(refs.boletoUpdatedAmount.value) : null;
 
-  if (!description || !dateString || !Number.isFinite(value) || value <= 0 || !Number.isFinite(paidValue) || paidValue < 0 || paidValue > value || (paymentMethod === 'boleto' && !boletoDueDate) || (isOverdueBoleto && (!Number.isFinite(boletoUpdatedAmount) || boletoUpdatedAmount < value))) {
-    alert('Preencha todos os campos corretamente antes de salvar.');
+  if (!description || !categories.length || !dateString || !Number.isFinite(value) || value <= 0 || !Number.isFinite(paidValue) || paidValue < 0 || paidValue > value || (paymentMethod === 'boleto' && !boletoDueDate) || (isOverdueBoleto && (!Number.isFinite(boletoUpdatedAmount) || boletoUpdatedAmount < value))) {
+    showFormValidationMessage('Preencha a descrição, selecione ao menos uma categoria e confira os valores e a data antes de salvar.');
     return;
   }
 
   if (cardFeeRate > 100) {
-    alert('A taxa do cartão deve estar entre 0% e 100%.');
+    showFormValidationMessage('A taxa do cartão deve estar entre 0% e 100%.');
     return;
   }
 
@@ -562,7 +589,7 @@ async function handleSubmitForm(event) {
 
   const baseDate = new Date(`${dateString}T12:00:00`);
   if (Number.isNaN(baseDate.getTime())) {
-    alert('Informe uma data válida antes de salvar.');
+    showFormValidationMessage('Informe uma data válida antes de salvar.');
     return;
   }
   const startingMonthIndex = Number(refs.startMonth.value);
@@ -573,7 +600,7 @@ async function handleSubmitForm(event) {
         id: state.editingEntryId,
         description,
         type,
-        category,
+        categories,
         amount: value,
         paidAmount: paidValue,
         paymentMethod,
@@ -611,7 +638,7 @@ async function handleSubmitForm(event) {
     await saveEntries(createRecurringEntries({
       description,
       type,
-      category,
+      categories,
       amount: value,
       paidAmount: paidValue,
       paymentMethod,
@@ -630,7 +657,7 @@ async function handleSubmitForm(event) {
       id: generateId(),
       description,
       type,
-      category,
+      categories,
       amount: value,
       paidAmount: paidValue,
       paymentMethod,
@@ -655,7 +682,7 @@ async function handleSubmitForm(event) {
     const entriesToSave = createInstallmentEntries({
       description,
       type,
-      category,
+      categories,
       amount: value,
       paidAmount: paidValue,
       paymentMethod,
@@ -675,7 +702,7 @@ async function handleSubmitForm(event) {
       id: generateId(),
       description,
       type,
-      category,
+      categories,
       amount: value,
       paymentMethod,
       cardFeeRate,
@@ -715,14 +742,25 @@ async function handleSubmitForm(event) {
   render();
 }
 
-function createInstallmentEntries({ description, type, category, amount, paidAmount, paymentMethod, cardFeeRate, boletoUpdatedAmount, boletoDueDate, receiptId, date, installmentsTotal, status }) {
+function showFormValidationMessage(message) {
+  refs.formValidationMessage.textContent = message;
+  refs.formValidationMessage.classList.remove('hidden');
+  refs.formValidationMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearFormValidationMessage() {
+  refs.formValidationMessage.textContent = '';
+  refs.formValidationMessage.classList.add('hidden');
+}
+
+function createInstallmentEntries({ description, type, categories, amount, paidAmount, paymentMethod, cardFeeRate, boletoUpdatedAmount, boletoDueDate, receiptId, date, installmentsTotal, status }) {
   const parentId = generateId();
 
   return [{
     id: generateId(),
     description,
     type,
-    category,
+    categories,
     amount,
     paidAmount,
     paymentMethod,
@@ -742,7 +780,7 @@ function createInstallmentEntries({ description, type, category, amount, paidAmo
   }];
 }
 
-function createRecurringEntries({ description, type, category, amount, paidAmount, paymentMethod, cardFeeRate, boletoUpdatedAmount, boletoDueDate, receiptId, date, startingMonthIndex, recurringMonths, status }) {
+function createRecurringEntries({ description, type, categories, amount, paidAmount, paymentMethod, cardFeeRate, boletoUpdatedAmount, boletoDueDate, receiptId, date, startingMonthIndex, recurringMonths, status }) {
   const startingYear = date.getFullYear();
   const entries = [];
   const parentId = generateId();
@@ -757,7 +795,7 @@ function createRecurringEntries({ description, type, category, amount, paidAmoun
       id: generateId(),
       description,
       type,
-      category,
+      categories,
       amount,
       paidAmount,
       paymentMethod,
@@ -818,7 +856,7 @@ function startEditingEntry(entryId) {
   refs.cancelEditBtn.classList.remove('hidden');
   refs.description.value = entry.description || '';
   refs.type.value = entry.type;
-  applyCategoryOptions(entry.category);
+  applyCategoryOptions(entry.categories || [entry.category]);
   refs.amount.value = entry.amount;
   refs.boletoUpdatedAmount.value = entry.boletoUpdatedAmount || '';
   refs.boletoDueDate.value = entry.boletoDueDate || '';
@@ -900,6 +938,7 @@ async function advanceInstallmentGroup(entryId, updatedEntry) {
 function resetEntryForm() {
   state.editingEntryId = null;
   refs.form.reset();
+  clearFormValidationMessage();
   refs.formTitle.textContent = 'Adicionar movimento';
   refs.submitEntryBtn.textContent = 'Salvar movimento';
   refs.cancelEditBtn.classList.add('hidden');
@@ -950,7 +989,7 @@ async function handleStatusToggle(event) {
 function getFilteredEntriesByStatus(entries, statusFilter, categoryFilter = 'all', entryTypeFilter = 'all') {
   return entries.filter((entry) => {
     const matchesStatus = statusFilter === 'all' || entry.status === statusFilter;
-    const matchesCategory = categoryFilter === 'all' || entry.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || (entry.categories || [entry.category]).includes(categoryFilter);
     const matchesEntryType = entryTypeFilter === 'all' || entry.type === entryTypeFilter;
     return matchesStatus && matchesCategory && matchesEntryType;
   });
@@ -962,7 +1001,8 @@ function populateReportCategoryFilter() {
     ...incomeCategories,
     ...expenseCategories,
     ...state.customCategories.income,
-    ...state.customCategories.expense
+    ...state.customCategories.expense,
+    ...state.entries.flatMap((entry) => entry.categories || [entry.category])
   ])].sort((first, second) => first.localeCompare(second, 'pt-BR'));
 
   refs.reportCategoryFilter.replaceChildren(
@@ -982,6 +1022,20 @@ function getInstallmentReportLabel(entry) {
   }
 
   return ` • ${entry.installmentsTotal} parcelas`;
+}
+
+function formatEntryCategories(entry) {
+  return (entry.categories || [entry.category]).map(escapeHtml).join(', ');
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
 }
 
 function render() {
@@ -1082,7 +1136,7 @@ function renderEntriesTable() {
           ${installmentLabel}
           ${entry.receiptId ? `<button class="receipt-btn" data-id="${entry.id}" type="button">Ver comprovante</button>` : ''}
         </td>
-        <td>${entry.category}</td>
+        <td>${formatEntryCategories(entry)}</td>
         <td><span class="type-pill ${rowTypeClass}">${entry.type === 'income' ? 'Entrada' : 'Saída'}</span></td>
         <td>${paymentMethods[entry.paymentMethod] || paymentMethods.other}</td>
         <td class="${rowAmountClass}">${formatCurrency(entry.amount)}${entry.boletoUpdatedAmount ? `<small class="fee-details">Atualizado ${formatCurrency(getEntryAmount(entry))}</small>` : ''}${getEntryFee(entry) ? `<small class="fee-details">Líquido ${formatCurrency(getEntryNetAmount(entry))} • taxa ${formatCurrency(getEntryFee(entry))}</small>` : ''}</td>
@@ -1194,7 +1248,7 @@ function renderPeriodReport(entries, title, statusFilter, categoryFilter, entryT
                 <li class="report-item">
                   <div class="report-item-main">
                     <span class="report-item-name">${entry.description}</span>
-                    <small>${entry.category} • ${formatDate(entry.date)} • ${paymentMethods[entry.paymentMethod] || paymentMethods.other}${getInstallmentReportLabel(entry)} • ${paymentStatusLabel(entry.status)} • Recebido ${formatCurrency(getEntryReceivedAmount(entry))}${entry.paidAmount < entry.amount ? ` • pendente ${formatCurrency(entry.amount - entry.paidAmount)}` : ''}${getEntryFee(entry) ? ` • taxa ${formatCurrency(getEntryFee(entry))}` : ''}</small>
+                    <small>${formatEntryCategories(entry)} • ${formatDate(entry.date)} • ${paymentMethods[entry.paymentMethod] || paymentMethods.other}${getInstallmentReportLabel(entry)} • ${paymentStatusLabel(entry.status)} • Recebido ${formatCurrency(getEntryReceivedAmount(entry))}${entry.paidAmount < entry.amount ? ` • pendente ${formatCurrency(entry.amount - entry.paidAmount)}` : ''}${getEntryFee(entry) ? ` • taxa ${formatCurrency(getEntryFee(entry))}` : ''}</small>
                   </div>
                   <strong class="amount-income">${formatCurrency(getEntryNetAmount(entry))}</strong>
                 </li>
@@ -1210,7 +1264,7 @@ function renderPeriodReport(entries, title, statusFilter, categoryFilter, entryT
                 <li class="report-item">
                   <div class="report-item-main">
                     <span class="report-item-name">${entry.description}</span>
-                    <small>${entry.category} • ${formatDate(entry.date)}${entry.boletoDueDate ? ` • vencimento ${formatDate(entry.boletoDueDate)}` : ''}${entry.boletoUpdatedAmount ? ` • atualizado ${formatCurrency(getEntryAmount(entry))}` : ''}${getInstallmentReportLabel(entry)} • ${paymentStatusLabel(entry.status)}${getBoletoInterest(entry) ? ` • juros/multa ${formatCurrency(getBoletoInterest(entry))}` : ''}</small>
+                    <small>${formatEntryCategories(entry)} • ${formatDate(entry.date)}${entry.boletoDueDate ? ` • vencimento ${formatDate(entry.boletoDueDate)}` : ''}${entry.boletoUpdatedAmount ? ` • atualizado ${formatCurrency(getEntryAmount(entry))}` : ''}${getInstallmentReportLabel(entry)} • ${paymentStatusLabel(entry.status)}${getBoletoInterest(entry) ? ` • juros/multa ${formatCurrency(getBoletoInterest(entry))}` : ''}</small>
                   </div>
                   <strong class="amount-expense">${formatCurrency(getEntryAmount(entry))}</strong>
                 </li>
@@ -1408,6 +1462,15 @@ function dataUrlToBlob(dataUrl) {
 
 function normalizeEntries(entries) {
   return (entries || []).map((entry) => {
+    const { category: legacyCategory, ...entryData } = entry;
+    const suppliedCategories = Array.isArray(entry.categories) && entry.categories.length
+      ? entry.categories
+      : [legacyCategory];
+    const categories = [...new Set(
+      suppliedCategories
+        .filter((category) => typeof category === 'string' && category.trim())
+        .map((category) => category.trim())
+    )];
     const dateValue = entry.date ? new Date(`${entry.date}T12:00:00`) : new Date();
     const resolvedYear = Number(entry.year) || dateValue.getFullYear();
     const amount = Math.max(0, Number(entry.amount) || 0);
@@ -1418,7 +1481,8 @@ function normalizeEntries(entries) {
     const originalBoletoAmount = isLegacyOverdueBoleto ? amount - legacyBoletoInterest : amount;
 
     return {
-      ...entry,
+      ...entryData,
+      categories: categories.length ? categories : ['Outros'],
       amount: originalBoletoAmount,
       year: resolvedYear,
       monthIndex: Number.isInteger(Number(entry.monthIndex)) ? Number(entry.monthIndex) : dateValue.getMonth(),
