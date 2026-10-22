@@ -18,6 +18,23 @@ Aplicativo local para controlar entradas e saídas mensais da clínica, incluind
 
 Os lançamentos e as categorias personalizadas são salvos automaticamente no armazenamento local da instalação do aplicativo. Eles continuam disponíveis quando o aplicativo é fechado e aberto novamente.
 
+## Android
+
+O aplicativo Android é gerado a partir da mesma interface web usando Capacitor. Para preparar o projeto nativo uma vez, com o Android Studio, o Android SDK e o JDK 21 instalados, execute:
+
+```bash
+npm install
+npm run android:setup
+```
+
+Para gerar um APK de depuração instalável:
+
+```bash
+npm run android:build
+```
+
+O arquivo será criado em `android/app/build/outputs/apk/debug/app-debug.apk`. Para atualizar o APK após mudanças na interface, execute novamente `npm run android:build`. No Android, a opção "Exportar dados" abre o compartilhamento do sistema para salvar ou enviar o arquivo de backup.
+
 ## Backup
 
 Use "Exportar dados" para gerar um arquivo JSON e guarde-o em um local seguro. Para restaurar dados, use "Importar dados" e selecione um backup gerado pelo sistema. Backups antigos com uma única categoria por movimento continuam compatíveis.

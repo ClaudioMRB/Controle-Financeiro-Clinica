@@ -6,7 +6,11 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "electron-build": "electron-builder --win"
+    "electron-build": "electron-builder --win",
+    "web:build": "node scripts/copy-web-assets.js",
+    "android:setup": "npm run web:build && cap add android",
+    "android:sync": "npm run web:build && cap sync android",
+    "android:build": "npm run android:sync && node scripts/build-android.js"
   },
   "build": {
     "appId": "com.controlefinanceiro.clinica",
@@ -32,10 +36,13 @@
     }
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@supabase/supabase-js": "^2.116.0"
   }
 }

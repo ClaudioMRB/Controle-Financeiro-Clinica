@@ -228,11 +228,29 @@ async function exportData() {
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const fileName = `clinica-financeiro-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([blob], fileName, { type: 'application/json' });
+
+  if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Backup do controle financeiro',
+        files: [file]
+      });
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
 
   link.href = url;
-  link.download = `clinica-financeiro-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
